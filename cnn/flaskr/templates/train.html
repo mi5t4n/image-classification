@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 
 {% block header %}
-  <h1>{% block title %}Train{% endblock %}</h1>
+  <h1 class="text-center">{% block title %}TRAIN{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
   <form accept-charset="utf-8" method="post" enctype="multipart/form-data">
     <div class="form-group">
       <button type="button" class="btn btn-primary" id="add">Add</button>
-      <button type="button" class="btn btn-primary" id="remove">Remove</button>
+      <button type="button" class="btn btn-danger" id="remove">Remove</button>
     </div>
     <div id="label_image">
       <div class="row">
@@ -21,20 +21,41 @@
         <div class="col">
           <div class="form-group">
             <label class="sr-only">Images</label>
-            <input type="file" name="image[]" multiple class="form-control" placeholder="File">
+            <input type="file" name="image" multiple class="form-control" placeholder="File">
           </div>
         </div>
       </div>
     </div>
     <div class="form-group">
+      <button type="button" class="btn btn-warning" id="apply">Apply</button>
       <button type="submit" class="btn btn-primary">Submit</button>
     </div>
   </form>
   
   <div class="progress">
-      <div class="progress-bar" role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">25%</div>
+      <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
   </div>
-  
+
+  <div id="status"></div>
+
+  <!-- Modal to alert-->
+  <div class="modal" tabindex="-1" role="dialog" id="myModal">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Error !!!</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Before submiting data, you need to apply first.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
 {% block custom_script %}
