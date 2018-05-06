@@ -5,38 +5,43 @@
 {% endblock %}
 
 {% block content %}
-  <form accept-charset="utf-8" method="post" enctype="multipart/form-data">
-    <div class="form-group">
-      <button type="button" class="btn btn-primary" id="add">Add</button>
-      <button type="button" class="btn btn-danger" id="remove">Remove</button>
-    </div>
-    <div id="label_image">
-      <div class="row">
-        <div class="col">
-          <div class="form-group">
-            <label class="sr-only">Label</label>
-            <input type="text" name="label[]" class="form-control" aria-describedby="labelHelp" placeholder="Enter label">
+<div class="row">
+  <div class="col">
+    <form accept-charset="utf-8" method="post" enctype="multipart/form-data">
+      <div class="form-group">
+        <button type="button" class="btn btn-primary" id="add">Add</button>
+        <button type="button" class="btn btn-danger" id="remove">Remove</button>
+      </div>
+      <div id="label_image">
+        <div class="row">
+          <div class="col">
+            <div class="form-group">
+              <label class="sr-only">Label</label>
+              <input type="text" name="label[]" class="form-control" aria-describedby="labelHelp" placeholder="Enter label">
+            </div>
           </div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label class="sr-only">Images</label>
-            <input type="file" name="image" multiple class="form-control" placeholder="File">
+          <div class="col">
+            <div class="form-group">
+              <label class="sr-only">Images</label>
+              <input type="file" name="image" multiple class="form-control" placeholder="File">
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="form-group">
-      <button type="button" class="btn btn-warning" id="apply">Apply</button>
-      <button type="submit" class="btn btn-primary">Submit</button>
-    </div>
-  </form>
-  
-  <div class="progress">
+      <div class="form-group">
+        <button type="button" class="btn btn-warning" id="apply">Apply</button>
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </div>
+    </form>
+    <div class="progress">
       <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-  </div>
+    </div>
 
-  <div id="status"></div>
+    <div id="status"></div>
+    </div>
+  <div class="col">
+    <textarea class="form-control" rows="20" id="train-status"></textarea>
+  </div>
 
   <!-- Modal to alert-->
   <div class="modal" tabindex="-1" role="dialog" id="myModal">

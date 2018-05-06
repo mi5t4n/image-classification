@@ -1,12 +1,13 @@
-import os, uuid
+import os, uuid, json, subprocess, sys
 from flask import (
     Flask, render_template, url_for, redirect,
-    request, flash
+    request, flash, Response, jsonify
 )
 from werkzeug.utils import secure_filename
 
 UPLOAD_FOLDER = '/home/kazekage/websites/image-classification/cnn/uploads'
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
+train_proc = {}
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -38,9 +39,17 @@ def create_app(test_config=None):
     @app.route('/')
     def hello():
         return render_template('home.html')
+        
+    @app.route('/large.csv')
+    def generate_large_csv():
+        def generate():
+            for row in range(0,100000):
+                yield str(row) + '\n'
+        return Response(generate(), mimetype='text/csv')
     
     @app.route('/train', methods=('GET','POST'))
     def train():
+        uid = uuid.uuid4()
         if request.method == 'GET':
             return render_template('train.html')
         elif request.method == 'POST':
@@ -48,7 +57,11 @@ def create_app(test_config=None):
             print (request.files.getlist('sagar'))
 
             # Creating a random directory to hold the images
-            directory = UPLOAD_FOLDER + '/' + str(uuid.uuid4())
+            directory = UPLOAD_FOLDER + '/' + str(uid) + '/datasets' 
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+                
+            tf_files = UPLOAD_FOLDER + '/' + str(uid) + '/tf_files'
             if not os.path.exists(directory):
                 os.makedirs(directory)
             
@@ -66,13 +79,17 @@ def create_app(test_config=None):
                         print (filename)
                         file.save(os.path.join(label_dir, filename))
 
+        train_proc[uid] = subprocess.Popen(cmd)
+
     
     @app.route('/test')
     def test():
         return render_template('test.html')
 
-    @app.route('/process_train')
-    def process_train():
-        pass
+    @app.route('/trainstatus/<uid>', methods=('GET', 'POST'))
+    def process_train(uid):
+        print (uid)
+        train_proc[uid] = uid
+        return json.dumps(train_proc, ensure_ascii=False)
 
     return app

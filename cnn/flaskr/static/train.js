@@ -71,6 +71,7 @@ $(document).ready(function(){
       },
       complete: function(xhr) {
           status.html(xhr.responseText);
+          $("#train-status").val($("train-status").val() + xhr.responseText);
       }
   });
 });
