@@ -49,13 +49,16 @@ $(document).ready(function(){
 
   $('form').ajaxForm({
       beforeSubmit: function(arr, $form, options){
+        $("#status").html("");
+        $("#trainstatus").val(" ");
         if (isDirty) {
-          $('#myModal').modal('toggle')
+          $('#myModal').modal('toggle');
           return false;
         }
       },
       beforeSend: function() {
         console.log('BeforeSend');
+        status.html("Uploading...");
         $("div.progress").show();
           status.empty();
           var percentVal = 0;
@@ -70,8 +73,23 @@ $(document).ready(function(){
           progress_bar.html(percentVal+'%');
       },
       complete: function(xhr) {
-          status.html(xhr.responseText);
-          $("#train-status").val($("train-status").val() + xhr.responseText);
+          status.html("Uploaded successfully !!!");
+          json_res = JSON.parse(xhr.responseText);
+          uid = json_res.uid;
+          console.log("uid = " + uid)
+
+          var interval_id = setInterval(function(){
+            $.ajax({
+              url: "/trainstatus/"+uid, 
+            }).done(function(data){
+              if (data.complete){
+                status.html("Trained successfully !!!");
+                clearInterval(interval_id);
+              } else {
+                $("#trainstatus").val($("#trainstatus").val() + data.data);              
+              }
+            }, 3000);
+          });
       }
   });
 });
