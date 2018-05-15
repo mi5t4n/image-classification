@@ -1,17 +1,20 @@
-import os, uuid, json, subprocess, sys
+import os, uuid, json, subprocess, sys, hashlib
 from flask import (
     Flask, render_template, url_for, redirect,
     request, flash, Response, jsonify
 )
 from werkzeug.utils import secure_filename
+from flask_socketio import SocketIO, send, emit
 
 UPLOAD_FOLDER = '/home/kazekage/websites/image-classification/cnn/uploads'
+TEST_FOLDER = '/home/kazekage/websites/image-classification/cnn/uploads/test'
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
-train_proc = {}
 train_done = {}
+socketio = None
 
 # Constants for CNN
-CMD = "python -m flaskr.scripts.retrain --bottleneck_dir={} --how_many_training_steps=500 --model_dir={} --summaries_dir={} --output_graph={} --output_labels={} --architecture=\"{}\" --image_dir={}"
+CMD_TEST = "python -m flaskr.scripts.label_image --graph={} --labels={} --image={}"
+CMD_TRAIN = "python -m flaskr.scripts.retrain --bottleneck_dir={} --how_many_training_steps=500 --model_dir={} --summaries_dir={} --output_graph={} --output_labels={} --architecture=\"{}\" --image_dir={}"
 ARCHITECTURE = os.environ['ARCHITECTURE']
 TF_FILES = '/home/kazekage/websites/image-classification/cnn/tf_files/'
 SUMMARIES_DIR = TF_FILES + 'training_summaries/' + ARCHITECTURE
@@ -23,6 +26,7 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def create_app(test_config=None):
+    global socketio
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
@@ -38,6 +42,8 @@ def create_app(test_config=None):
         # load the test config if passed in
         app.config.from_mapping(test_config)
 
+    socketio = SocketIO(app)
+
     # ensure the instance folder exists
     try:
         os.makedirs(app.instance_path)
@@ -48,13 +54,6 @@ def create_app(test_config=None):
     @app.route('/')
     def hello():
         return render_template('home.html')
-        
-    @app.route('/large.csv')
-    def generate_large_csv():
-        def generate():
-            for row in range(0,100000):
-                yield str(row) + '\n'
-        return Response(generate(), mimetype='text/csv')
     
     @app.route('/train', methods=('GET','POST'))
     def train():
@@ -85,77 +84,107 @@ def create_app(test_config=None):
                         # print (filename)
                         file.save(os.path.join(label_dir, filename))
 
-        # output_graph = UPLOAD_FOLDER + '/' + str(uid) + '/retrained_graph.pb'
-        # output_labels = UPLOAD_FOLDER + '/' + str(uid) + '/retrained_labels.txt'
-        # image_dir = directory
-        # cmd = CMD.format(BOTTLENECK_DIR,MODEL_DIR,SUMMARIES_DIR, output_graph, output_labels, ARCHITECTURE, image_dir)
-        # print (cmd)
-
         json_res = {}
-        json_res ["uid"] = uid
+        json_res ["uid"] = str(uid)
+        json_res = json.dumps(json_res, ensure_ascii=False)
+        return Response(json_res, mimetype="application/json")
 
-        return jsonify(json_res)
-        
-        #Training start
-        # train_proc[uid] = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
-        # p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
-        # def generate():
-        #     while True:
-        #         out = p.stderr.read(1)
-        #         if out == '' and p.poll() != None:
-        #             break
-        #         if out != '':
-        #             out = out.decode("utf-8")
-        #             yield out
-        #             sys.stdout.write(out)
-        #             sys.stdout.flush()
-                                        
-        # return Response(generate(), mimetype='text/html')
-
-
-    
-    @app.route('/test')
+               
+    @app.route('/test', methods=('GET', 'POST'))
     def test():
-        return render_template('test.html')
+        if request.method == 'GET':
+            return render_template('test.html')
+        elif request.method == 'POST':
+            uid = request.form['uid']
+            test_image = request.files['image']
 
-    @app.route('/trainstatus/<uid>', methods=('GET', 'POST'))
-    def process_train(uid):
-        dict_res = {}
-        try:
-            # UID is trained
-            uid_done = train_done[uid]
-        except KeyError:
-            #UID is not trained
-            try:
-                # UID is already started training process
-                p = train_proc[uid]
-                out = p.stderr.read(35)
-                out = out.decode("utf-8")
-                dict_res["data"] = out
-                dict_res[ "uid"] = uid
-                if out == '' and p.poll() != None:
-                    p.kill()
-                    del (train_proc[uid])
-                    train_done[uid]=uid
-                    dict_res["complete"] = True
+            print (uid)
+            print (test_image)
 
-                if out != '':
-                    dict_res["complete"] = False
-                    sys.stdout.write(out)
-                    sys.stdout.flush()
-                return Response(jsonify(dict_res), mimetype="text/json")
-
-            except KeyError:
-                # UID has not started training process
-                # So start the process
-                output_graph = UPLOAD_FOLDER + '/' + uid + '/retrained_graph.pb'
-                output_labels = UPLOAD_FOLDER + '/' + uid + '/retrained_labels.txt'
-                image_dir = UPLOAD_FOLDER + '/' + uid + '/datasets' 
-                cmd = CMD.format(BOTTLENECK_DIR,MODEL_DIR,SUMMARIES_DIR, output_graph, output_labels, ARCHITECTURE, image_dir)
+            # Creating test folder
+            if not os.path.exists(TEST_FOLDER):
+                os.makedirs(TEST_FOLDER)
+            
+            if test_image and allowed_file(test_image.filename): 
+                filename = secure_filename(test_image.filename)
+                ext = filename.split(".")[-1]
+                test_img_filename = "{}.{}".format(uuid.uuid4(),ext)
+                #print (test_img_filename)
+                test_image_location = os.path.join(TEST_FOLDER,test_img_filename)
+                train_graph = os.path.join(UPLOAD_FOLDER, uid, "retrained_graph.pb")
+                train_labels = os.path.join(UPLOAD_FOLDER, uid, "retrained_labels.txt")
+                #print (train_graph)
+                #print (test_image_location)
+                test_image.save(test_image_location)
+                cmd = CMD_TEST.format(train_graph, train_labels, test_image_location)
                 print (cmd)
-                train_proc[uid] = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
-                p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
-                                        
-        return Response(generate(), mimetype='text/html')
+
+                p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+                (output, err) = p.communicate()
+
+                p_status = p.wait()
+
+                print ("Command output : {}".format(output))
+                print ("Command exit status/return code : {}".format(p_status))
+
+                if (p_status == 1):
+                    flash("Not trained or could not found the data")
+                else :
+                    output = output.decode("utf-8")
+                    output = output.split("\n")[3:][:-1]
+                    result = ""
+                    for out in output:
+                        temp = out.split(" ");
+                        lbl = temp[0]
+                        percent = round(float(temp[1])*100.0,2)
+                        result = result + lbl + " = " + str(percent) + "% \n"
+
+                    #output = output[-2]
+                    print (result)
+                    flash(result)
+                return render_template("test.html")
+            
+        
+
+    # @app.route('/trainstatus/<uid>', methods=('GET', 'POST'))
+    @socketio.on('connect')
+    def handle_connect():
+        print ("Websocket connected")
+
+    @socketio.on('train')
+    def handle_train(json_res):
+        global train_done
+        print (json_res)
+        uid = json_res['uid']
+       
+        output_graph = UPLOAD_FOLDER + '/' + uid + '/retrained_graph.pb'
+        output_labels = UPLOAD_FOLDER + '/' + uid + '/retrained_labels.txt'
+        image_dir = UPLOAD_FOLDER + '/' + uid + '/datasets' 
+        cmd = CMD_TRAIN.format(BOTTLENECK_DIR,MODEL_DIR,SUMMARIES_DIR, output_graph, output_labels, ARCHITECTURE, image_dir)
+        print (cmd)
+
+        if not uid in train_done:
+            p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
+
+            while True:
+                out = p.stderr.read(1)
+                out_utf = out.decode("utf-8")
+                if p.poll() != None:
+                    train_done[uid]= uid
+                    break
+                if out != '':
+                    sys.stdout.write(out_utf)
+                    sys.stdout.flush()
+        json_res = {}
+        json_res["uid"] = uid
+        json_res["complete"] = "true"
+        print (json_res)
+        json_res = json.dumps(json_res, ensure_ascii=False)
+        emit('trainstatus',json_res, json=True)
+ 
 
     return app
+
+if __name__ == '__main__':
+    app = create_app()
+    socketio.run(app)

@@ -33,9 +33,7 @@
       <header>
         {% block header %}{% endblock %}
       </header>
-      {% for message in get_flashed_messages() %}
-        <div class="flash">{{ message }}</div>
-      {% endfor %}
+      
       {% block content %}{% endblock %}
     </section>
   </body>
@@ -43,6 +41,7 @@
   <script src="{{ url_for('static', filename='jquery.form.js') }}"></script>
   <script src="{{ url_for('static', filename='popper.min.js') }}"></script>
   <script src="{{ url_for('static', filename='bootstrap.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
 
   {% block custom_script %} {% endblock %}
 </html>
